@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CollabSpace — Real-time Document Editor</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:#182230;background:#f4f6fb}
+*{box-sizing:border-box}body{margin:0;min-height:100vh}button,input,textarea{font:inherit}button{cursor:pointer;border:0;border-radius:9px;padding:10px 14px;background:#4f46e5;color:white;font-weight:650}button.secondary{background:#e9eaf5;color:#252b44}button.danger{background:#fee2e2;color:#991b1b}
+input,textarea{border:1px solid #d9deea;border-radius:9px;padding:11px;background:white;width:100%;outline-color:#6366f1}
+.auth{max-width:420px;margin:9vh auto;background:white;padding:30px;border-radius:18px;box-shadow:0 15px 50px #25345b16}.auth h1{margin:0 0 8px}.muted{color:#667085}.stack{display:grid;gap:12px}.switch{background:none;color:#4f46e5;padding:8px}
+#app{display:none;min-height:100vh;grid-template-columns:270px 1fr}.sidebar{background:#151b2d;color:white;padding:22px 16px;display:flex;flex-direction:column;gap:14px}.brand{font-size:21px;font-weight:800;letter-spacing:-.5px}.brand span{color:#a5b4fc}.sidebar .muted{color:#aab3ca;font-size:13px}.doc-list{display:grid;gap:5px;overflow:auto}.doc-item{display:flex;gap:7px;align-items:center;background:transparent;text-align:left;color:#dbe1f2;font-weight:500}.doc-item.active,.doc-item:hover{background:#29324c}.doc-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.side-bottom{margin-top:auto;display:grid;gap:10px}.workspace{min-width:0;display:flex;flex-direction:column;height:100vh}.topbar{background:white;border-bottom:1px solid #e5e7ef;padding:15px 22px;display:flex;gap:12px;align-items:center}.topbar input{max-width:430px;border-color:transparent;font-weight:750;font-size:19px}.status{font-size:12px;color:#16835d;margin-left:auto;white-space:nowrap}.people{display:flex;gap:5px;flex-wrap:wrap}.pill{font-size:12px;background:#e8eaff;color:#3935a5;padding:5px 8px;border-radius:20px}.editor-area{padding:28px;overflow:auto;flex:1}.editor-card{max-width:1000px;margin:0 auto;background:white;min-height:calc(100% - 10px);border:1px solid #e6e8f0;border-radius:14px;box-shadow:0 8px 30px #1e293b0a;display:flex;flex-direction:column}.editor-head{padding:18px 22px;border-bottom:1px solid #edf0f5;display:flex;align-items:center;justify-content:space-between;gap:10px}.editor-head h2{font-size:14px;margin:0}.editor-head small{color:#7a8497}.editor-wrap{position:relative;flex:1;display:flex;min-height:400px}.editor-wrap textarea{border:0;border-radius:0;resize:none;min-height:400px;padding:28px 32px;font-size:16px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:none}.footer{padding:10px 22px;color:#8790a2;font-size:12px;border-top:1px solid #edf0f5;display:flex;justify-content:space-between}.empty{margin:auto;text-align:center;color:#7b8496}.hidden{display:none!important}.share-row{display:flex;gap:8px}.share-row input{min-width:0}.toast{position:fixed;right:18px;bottom:18px;background:#172033;color:white;padding:12px 16px;border-radius:10px;display:none;max-width:340px;box-shadow:0 10px 30px #11182733}
+@media(max-width:760px){#app{grid-template-columns:1fr}.sidebar{padding:12px;max-height:260px}.side-bottom{margin-top:0}.workspace{height:calc(100vh - 260px)}.topbar{padding:10px}.editor-area{padding:10px}.editor-wrap textarea{padding:18px}.status{display:none}}
+</style>
+</head>
+<body>
+<section id="auth" class="auth">
+  <div class="brand" style="color:#182230;margin-bottom:20px">Collab<span>Space</span></div>
+  <h1 id="authTitle">Welcome back</h1><p class="muted" id="authSubtitle">Log in to open your documents.</p>
+  <form id="authForm" class="stack">
+    <input id="name" placeholder="Your name" autocomplete="name" class="hidden">
+    <input id="email" type="email" placeholder="Email address" required autocomplete="email">
+    <input id="password" type="password" placeholder="Password (8+ characters)" minlength="8" required autocomplete="current-password">
+    <button id="authSubmit">Log in</button>
+  </form>
+  <button id="authSwitch" class="switch">New here? Create an account</button>
+  <p class="muted" style="font-size:12px">Demo project · use a test account for evaluation.</p>
+</section>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">Collab<span>Space</span></div>
+    <div class="muted" id="welcome"></div>
+    <button id="newDoc">＋ New document</button>
+    <div class="muted">YOUR DOCUMENTS</div>
+    <div id="docList" class="doc-list"></div>
+    <div class="side-bottom">
+      <div class="muted">Share a document with a registered user by email.</div>
+      <div class="share-row"><input id="shareEmail" type="email" placeholder="Collaborator email"><button id="shareBtn">Share</button></div>
+      <button id="logout" class="secondary">Log out</button>
+    </div>
+  </aside>
+  <main class="workspace">
+    <div class="topbar"><input id="docTitle" placeholder="Document title" disabled><div id="status" class="status">● Connected</div></div>
+    <div class="people" id="people" style="padding:0 22px;background:white"></div>
+    <div class="editor-area" id="editorArea"><div class="empty">Create or select a document to start.</div></div>
+    <div class="footer"><span>Changes sync live to collaborators</span><span id="saveState">Ready</span></div>
+  </main>
+</div>
+<div id="toast" class="toast"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let token=localStorage.getItem('collab_token')||'', me=null, docs=[], active=null, socket=null, mode='login', saveTimer=null, applyingRemote=false, cursors=new Map();
+function toast(message){$('toast').textContent=message;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2800)}
+async function api(url,options={}){const headers={...(options.headers||{}),'Content-Type':'application/json'};if(token)headers.Authorization='Bearer '+token;const r=await fetch(url,{...options,headers});if(r.status===204)return null;const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Request failed');return data}
+function authMode(next){mode=next;const reg=mode==='register';$('authTitle').textContent=reg?'Create your account':'Welcome back';$('authSubtitle').textContent=reg?'Create an account to start collaborating.':'Log in to open your documents.';$('name').classList.toggle('hidden',!reg);$('name').required=reg;$('password').autocomplete=reg?'new-password':'current-password';$('authSubmit').textContent=reg?'Create account':'Log in';$('authSwitch').textContent=reg?'Already have an account? Log in':'New here? Create an account'}
+$('authSwitch').onclick=()=>authMode(mode==='login'?'register':'login');
+$('authForm').onsubmit=async e=>{e.preventDefault();try{const body={email:$('email').value,password:$('password').value};if(mode==='register')body.name=$('name').value;const result=await api('/api/auth/'+(mode==='register'?'register':'login'),{method:'POST',body:JSON.stringify(body)});token=result.token;me=result.user;localStorage.setItem('collab_token',token);await boot()}catch(err){toast(err.message)}};
+$('logout').onclick=()=>{if(socket)socket.disconnect();localStorage.removeItem('collab_token');token='';me=null;active=null;$('app').style.display='none';$('auth').style.display='block';};
+async function boot(){try{const r=await api('/api/auth/me');me=r.user;$('auth').style.display='none';$('app').style.display='grid';$('welcome').textContent='Signed in as '+me.name;connectSocket();await loadDocs();}catch(e){token='';localStorage.removeItem('collab_token');$('auth').style.display='block';$('app').style.display='none';if(e.message!=='Please log in to continue.')toast(e.message)}}
+function connectSocket(){if(socket)socket.disconnect();socket=io({auth:{token}});socket.on('connect',()=>$('status').textContent='● Live');socket.on('disconnect',()=>$('status').textContent='○ Reconnecting');socket.on('connect_error',e=>toast('Realtime connection: '+e.message));socket.on('document:change',data=>{if(!active||data.documentId!==active.id)return;const ta=$('editorText');if(!ta)return;const start=ta.selectionStart,end=ta.selectionEnd;applyingRemote=true;ta.value=data.content;ta.setSelectionRange(Math.min(start,ta.value.length),Math.min(end,ta.value.length));applyingRemote=false;$('saveState').textContent='Synced';});socket.on('presence:update',users=>{if(!active)return;$('people').innerHTML='';users.forEach(u=>{const p=document.createElement('span');p.className='pill';p.textContent=u.name+(u.id===me.id?' (you)':'');$('people').append(p)})});socket.on('cursor:update',data=>{if(!active||data.documentId!==active.id)return;cursors.set(data.user.id,{...data.user,position:data.position});renderCursors()});socket.on('document:deleted',()=>{active=null;renderEmpty();loadDocs()})}
+async function loadDocs(){try{docs=await api('/api/documents');renderList()}catch(e){toast(e.message)}}
+function renderList(){$('docList').innerHTML='';docs.forEach(d=>{const b=document.createElement('button');b.className='doc-item'+(active&&active.id===d.id?' active':'');const s=document.createElement('span');s.textContent=d.title;b.append(s);b.onclick=()=>openDoc(d.id);$('docList').append(b)})}
+function renderEmpty(){$('docTitle').value='';$('docTitle').disabled=true;$('people').innerHTML='';$('editorArea').innerHTML='<div class="empty">Create or select a document to start.</div>'}
+async function openDoc(id){try{const r=await api('/api/documents/'+id);active=r.document;cursors.clear();$('docTitle').disabled=false;$('docTitle').value=active.title;$('editorArea').innerHTML='<div class="editor-card"><div class="editor-head"><h2>DOCUMENT EDITOR</h2><small id="docMeta">Autosaves while you type</small></div><div class="editor-wrap"><textarea id="editorText" placeholder="Start writing together..."></textarea><div id="cursorLayer"></div></div></div>';$('editorText').value=active.content;renderList();socket.emit('document:join',{documentId:id},response=>{if(response.error)toast(response.error);else if(response.document){active=response.document;$('editorText').value=active.content}});$('editorText').addEventListener('input',onEdit);$('editorText').addEventListener('keyup',publishCursor);$('editorText').addEventListener('click',publishCursor);$('editorText').addEventListener('select',publishCursor);$('editorText').addEventListener('scroll',renderCursors);$('docTitle').onchange=async()=>{try{await api('/api/documents/'+active.id,{method:'PATCH',body:JSON.stringify({title:$('docTitle').value})});await loadDocs()}catch(e){toast(e.message)}};await loadDocs()}catch(e){toast(e.message)}}
+function onEdit(){if(applyingRemote||!active)return;$('saveState').textContent='Saving…';clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{try{const content=$('editorText').value;const r=await api('/api/documents/'+active.id,{method:'PATCH',body:JSON.stringify({content})});active=r.document;$('saveState').textContent='Saved';socket.emit('document:change',{documentId:active.id,content},response=>{if(response&&response.error)toast(response.error)})}catch(e){$('saveState').textContent='Error';toast(e.message)}},350);publishCursor()}
+function publishCursor(){if(!active||!socket||!socket.connected)return;const ta=$('editorText');if(!ta)return;socket.emit('cursor:update',{documentId:active.id,position:ta.selectionStart})}
+function renderCursors(){const layer=$('cursorLayer'),ta=$('editorText');if(!layer||!ta)return;layer.innerHTML='';layer.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:hidden';const cs=getComputedStyle(ta);const mirror=document.createElement('div');mirror.style.cssText=`position:absolute;visibility:hidden;white-space:pre-wrap;overflow-wrap:anywhere;top:0;left:-9999px;width:${ta.clientWidth}px;padding:${cs.padding};font:${cs.font};line-height:${cs.lineHeight};`;document.body.append(mirror);cursors.forEach(c=>{if(c.userId===me.id)return;const span=document.createElement('span');span.textContent='​';mirror.textContent=ta.value.slice(0,c.position);mirror.append(span);const line=document.createElement('div');line.style.cssText=`position:absolute;left:${span.offsetLeft-ta.scrollLeft}px;top:${span.offsetTop-ta.scrollTop}px;height:${parseFloat(cs.lineHeight)||22}px;width:2px;background:#e11d48`;const label=document.createElement('span');label.textContent=c.name;label.style.cssText='position:absolute;left:0;top:-18px;background:#e11d48;color:white;font:11px system-ui;padding:2px 5px;border-radius:3px;white-space:nowrap';line.append(label);layer.append(line)});mirror.remove()}
+$('newDoc').onclick=async()=>{const title=prompt('Document title?','Untitled document');if(title===null)return;try{const r=await api('/api/documents',{method:'POST',body:JSON.stringify({title:title||'Untitled document'})});await loadDocs();await openDoc(r.document.id)}catch(e){toast(e.message)}};
+$('shareBtn').onclick=async()=>{if(!active)return toast('Open a document first.');const email=$('shareEmail').value.trim();if(!email)return toast('Enter collaborator email.');try{await api('/api/documents/'+active.id+'/share',{method:'POST',body:JSON.stringify({email})});$('shareEmail').value='';toast('Document shared. Ask them to log in and open it.')}catch(e){toast(e.message)}};
+boot();
+</script>
+</body>
+</html>

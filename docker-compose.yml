@@ -1,0 +1,15 @@
+services:
+  collaborative-editor:
+    build: .
+    container_name: collaborative-editor
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-change_this_before_deployment}
+    volumes:
+      - editor-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  editor-data:
