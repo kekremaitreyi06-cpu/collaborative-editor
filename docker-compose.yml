@@ -2,6 +2,7 @@ services:
   collaborative-editor:
     build: .
     container_name: collaborative-editor
+    init: true
     ports:
       - "3000:3000"
     environment:
